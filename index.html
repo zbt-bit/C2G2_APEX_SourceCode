@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Street Lamp Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f0f2f5; color: #333; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        h1 { color: #2c3e50; text-align: center; margin-bottom: 30px; }
+        .grid-container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+        .card {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .main-controls {
+            grid-column: 1 / 2;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .side-panel { grid-column: 2 / 3; }
+        .full-width { grid-column: 1 / -1; }
+
+        /* Specific Component Styling */
+        #current-time-display {
+            font-size: 1.5em;
+            font-weight: bold;
+            text-align: center;
+            padding: 10px;
+            background-color: #ecf0f1;
+            border-radius: 4px;
+        }
+        .gauge-container { text-align: center; padding: 10px; }
+        .gauge-label { margin-top: 10px; font-weight: bold; }
+        #lamp-status-output {
+            font-size: 1.5em;
+            font-weight: bold;
+            padding: 10px;
+            text-align: center;
+            border-radius: 4px;
+            margin-top: 15px;
+        }
+        .action-max { background-color: #f7d794; color: #e67e22; }
+        .action-dimmer { background-color: #a29bfe; color: #6c5ce7; }
+        .action-off { background-color: #dfe6e9; color: #2d3436; }
+        .alert-log-item {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            font-size: 0.9em;
+        }
+        .alert-log-item:last-child { border-bottom: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI Street Lamp Monitoring Dashboard 🚦</h1>
+
+        <div class="main-controls">
+            <div class="card">
+                <h2>Current Time ⏰</h2>
+                <div id="current-time-display"></div>
+            </div>
+            <div class="card">
+                <h2>Solar Charging Level 🔋</h2>
+                <div class="gauge-container">
+                    <canvas id="solarGauge" height="100"></canvas>
+                    <div class="gauge-label" id="solar-charge-label">Loading...</div>
+                </div>
+            </div>
+            <div class="card">
+                <h2>Current Lamp Condition ✨</h2>
+                <div id="lamp-status-output">Awaiting AI Decision...</div>
+                
+                <form id="controlForm" style="margin-top: 15px;">
+                    <select id="isNightTime" style="margin-bottom: 5px;">
+                        <option value="true">Night Time</option>
+                        <option value="false">Day Time</option>
+                    </select>
+                    <select id="isMotionDetected" style="margin-bottom: 5px;">
+                        <option value="false">No Motion</option>
+                        <option value="true">Motion Detected</option>
+                    </select>
+                    <select id="weatherCondition" style="margin-bottom: 5px;">
+                        <option value="clear">Clear Weather</option>
+                        <option value="rainy">Rain/Fog</option>
+                    </select>
+                    <button type="submit">Run AI Test</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="grid-container">
+            <div class="left-column">
+                <div class="card" style="margin-bottom: 20px;">
+                    <h2>Operational Time Breakdown (24h) 📈</h2>
+                    <canvas id="operationalTimeChart"></canvas>
+                </div>
+                <div class="card">
+                    <h2>Weather Situation 🌧️</h2>
+                    <canvas id="weatherChart"></canvas>
+                </div>
+            </div>
+
+            <div class="side-panel">
+                <div class="card" style="margin-bottom: 20px;">
+                    <h2>Camera View 📹</h2>
+                    <div style="height: 150px; background-color: #34495e; color: white; text-align: center; line-height: 150px; border-radius: 4px;">
+                        LIVE FEED PLACEHOLDER
+                    </div>
+                </div>
+                <div class="card">
+                    <h2>Alert Log 🔔</h2>
+                    <div id="alert-log-container">
+                        <div class="alert-log-item">09:00: Power fluctuation detected.</div>
+                        <div class="alert-log-item">08:30: AI decision: MAX OUTPUT.</div>
+                        <div class="alert-log-item">08:00: System fully operational.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration ---
+        const API_URL = 'http://127.0.0.1:5000/api/control_lamp';
+        const form = document.getElementById('controlForm');
+        const outputDiv = document.getElementById('lamp-status-output');
+        
+        // Helper to get Day of Year (required by the AI model)
+        Date.prototype.getDayOfYear = function() {
+            var start = new Date(this.getFullYear(), 0, 0);
+            var diff = (this - start) + ((start.getTimezoneOffset() - this.getTimezoneOffset()) * 60 * 1000);
+            var oneDay = 1000 * 60 * 60 * 24;
+            return Math.floor(diff / oneDay);
+        }
+
+        const FIXED_DAY_OF_YEAR = new Date().getDayOfYear() || 300; 
+
+        // Weather Profiles for the simple dropdown test
+        const weatherProfiles = {
+            rainy: {
+                humidity: 95, cloudcover: 80, visibility: 5, uvindex: 1, 
+                day_of_year: FIXED_DAY_OF_YEAR, temp: 25, precip: 15.0
+            },
+            clear: {
+                humidity: 70, cloudcover: 20, visibility: 10, uvindex: 2, 
+                day_of_year: FIXED_DAY_OF_YEAR, temp: 28, precip: 0.0
+            }
+        };
+
+        // --- CHART INSTANCES ---
+        let operationalTimeChart;
+        let weatherChart;
+        let solarGauge;
+
+        // --- DASHBOARD FUNCTIONS ---
+
+        // Function to update the current time display
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+            const dateString = now.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+            document.getElementById('current-time-display').textContent = `${timeString} / ${dateString}`;
+        }
+        
+        // Function to simulate and draw the Solar Charging Gauge (using Chart.js Doughnut)
+        function drawSolarGauge() {
+            const chargeLevel = Math.floor(Math.random() * 30) + 70; // Random level between 70% and 100%
+            document.getElementById('solar-charge-label').textContent = `${chargeLevel}% Charged`;
+            
+            const ctx = document.getElementById('solarGauge').getContext('2d');
+            
+            if (solarGauge) solarGauge.destroy(); // Destroy previous instance
+            
+            solarGauge = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    datasets: [{
+                        data: [chargeLevel, 100 - chargeLevel],
+                        backgroundColor: ['#2ecc71', '#ecf0f1'], // Green for charge, light grey for empty
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    rotation: -90,
+                    circumference: 180, // Half circle
+                    cutout: '80%',
+                    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        // Function to simulate and draw the Operational Time Pie Chart
+        function drawOperationalTimeChart() {
+            const totalHours = 24;
+            const maxHours = Math.floor(Math.random() * 4) + 1; // 1-5 hours max
+            const dimmerHours = Math.floor(Math.random() * 6) + 2; // 2-7 hours dimmer
+            const offHours = totalHours - maxHours - dimmerHours;
+
+            const ctx = document.getElementById('operationalTimeChart').getContext('2d');
+            
+            if (operationalTimeChart) operationalTimeChart.destroy();
+            
+            operationalTimeChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['OFF (Savings)', 'DIMMER (Efficiency)', 'MAX (Safety)'],
+                    datasets: [{
+                        data: [offHours, dimmerHours, maxHours],
+                        backgroundColor: ['#2ecc71', '#f39c12', '#e74c3c'], // Green, Orange, Red
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'right' },
+                        title: { display: true, text: 'Hours in State' }
+                    }
+                }
+            });
+        }
+
+        // Function to draw the Weather/Humidity Bar Chart
+        function drawWeatherChart(weatherData) {
+            const labels = ['Precipitation (mm)', 'Humidity (%)', 'Cloud Cover (%)'];
+            const dataValues = [weatherData.precip, weatherData.humidity, weatherData.cloudcover];
+            
+            const ctx = document.getElementById('weatherChart').getContext('2d');
+            
+            if (weatherChart) weatherChart.destroy();
+
+            weatherChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Current Weather Situation',
+                        data: dataValues,
+                        backgroundColor: ['#3498db', '#9b59b6', '#34495e'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+
+        // --- AI CONTROL LOGIC ---
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault(); 
+
+            // 1. Gather inputs
+            const isNightTime = document.getElementById('isNightTime').value === 'true';
+            const isMotionDetected = document.getElementById('isMotionDetected').value === 'true';
+            const weatherCondition = document.getElementById('weatherCondition').value;
+            const weatherData = weatherProfiles[weatherCondition];
+
+            outputDiv.textContent = 'Lamp Action: Requesting decision...';
+            outputDiv.className = '';
+            
+            // Update the live weather chart based on the selected input data
+            drawWeatherChart(weatherData);
+
+            // 2. Prepare the JSON payload
+            const payload = {
+                is_night_time: isNightTime,
+                is_motion_detected: isMotionDetected,
+                weather_data: weatherData
+            };
+            
+            // 3. Send the POST request
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    // 4. Display the result and apply styling
+                    let action = result.lamp_action;
+                    outputDiv.textContent = action;
+                    
+                    if (action.includes("MAX")) {
+                        outputDiv.classList.add('action-max');
+                    } else if (action.includes("DIMMER")) {
+                        outputDiv.classList.add('action-dimmer');
+                    } else {
+                        outputDiv.classList.add('action-off');
+                    }
+                    
+                } else {
+                    outputDiv.style.backgroundColor = '#fdedec';
+                    outputDiv.textContent = `API Error: ${result.message || 'Check server console.'}`;
+                }
+
+            } catch (error) {
+                outputDiv.style.backgroundColor = '#fdedec';
+                outputDiv.textContent = `NETWORK ERROR: Could not connect to API at ${API_URL}. Is your code.py running?`;
+            }
+        });
+
+        // --- INITIALIZATION ---
+        function initDashboard() {
+            // Start the time update
+            updateTime();
+            setInterval(updateTime, 1000); 
+
+            // Draw the charts with initial data
+            drawSolarGauge();
+            drawOperationalTimeChart();
+            // Start the weather chart with clear weather profile initially
+            drawWeatherChart(weatherProfiles.clear);
+        }
+
+        window.onload = initDashboard;
+
+    </script>
+</body>
+</html>
