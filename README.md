@@ -12,19 +12,19 @@ Action Required for Examiner: Please perform the following steps before running 
 4. Move the videos (1129.mp4, Emergency.mp4, traffics.mp4) into a new folder named videos inside static.
 5. Move weather.csv into the static folder.Your final project structure should look like this:
 project_root/
-├── app.py
-├── getLampAction.js
-├── street_lamp_model.joblib
-├── train_model.py
-├── templates/                 <-- Flask requires this folder for HTML files
-│   ├── index.html
-│   └── overview.html
-└── static/                    <-- Flask requires this folder for browser assets
-    ├── weather.csv
-    └── videos/
-        ├── 1129.mp4         (Clear Road)
-        ├── Emergency.mp4    (Crash/Emergency)
-        └── traffics.mp4     (Vehicle Detected)
+- app.py
+- getLampAction.js
+- street_lamp_model.joblib
+- train_model.py
+- templates/                 <-- Flask requires this folder for HTML files
+    - index.html
+    - overview.html
+- static/                    <-- Flask requires this folder for browser assets
+      - weather.csv
+      - videos/
+          - 1129.mp4         (Clear Road)
+          - Emergency.mp4    (Crash/Emergency)
+          - traffics.mp4     (Vehicle Detected)
    
 🚀 How to Set Up and Run the Application
 1. Prerequisites: You must have Python 3 installed and the following libraries available. We recommend using your Anaconda Prompt or terminal:
