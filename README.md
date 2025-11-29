@@ -20,11 +20,11 @@ project_root/
     - index.html
     - overview.html
 - static/                    <-- Flask requires this folder for browser assets
-      - weather.csv
-      - videos/
-          - 1129.mp4         (Clear Road)
-          - Emergency.mp4    (Crash/Emergency)
-          - traffics.mp4     (Vehicle Detected)
+    - weather.csv
+    - videos/
+         - 1129.mp4         (Clear Road)
+         - Emergency.mp4    (Crash/Emergency)
+         - traffics.mp4     (Vehicle Detected)
    
 🚀 How to Set Up and Run the Application
 1. Prerequisites: You must have Python 3 installed and the following libraries available. We recommend using your Anaconda Prompt or terminal:
