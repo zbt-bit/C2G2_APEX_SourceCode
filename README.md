@@ -15,9 +15,9 @@ project_root/
 - street_lamp_model.joblib
 - train_model.py
 - weather.csv
-- 1129.mp4         (Clear Road)
-- Emergency.mp4    (Crash/Emergency)
-- traffics.mp4     (Vehicle Detected)
+- nighttime_withoutcar.mp4         (Clear Road)
+- accidents.mp4    (Crash/Emergency)
+- Night_withcardetected.mp4     (Vehicle Detected)
 - templates
      - index.html
      - overview.html
