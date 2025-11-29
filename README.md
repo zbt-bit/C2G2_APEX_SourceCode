@@ -23,7 +23,7 @@ project_root/
      - overview.html
    
 🚀 How to Set Up and Run the Application
-1. Prerequisites: You must have Python 3 installed and the following libraries available. We recommend using your Anaconda Prompt or terminal:
+1. Prerequisites: You must have Python 3 installed and the following libraries available. We recommend using your Anaconda Prompt:
 - Bash:
 - pip install flask pandas scikit-learn joblib
 2. Training the Model (If necessary)The AI decision logic relies on the model file (street_lamp_model.joblib).
