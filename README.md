@@ -4,7 +4,7 @@ This repository contains the complete source code for a Smart Street Lamp Contro
 
 The system demonstrates intelligent traffic and emergency decision-making by loading a simulated machine learning model (street_lamp_model.joblib) to control the lamp's brightness.
 
-⚠️ CRITICAL SETUP: Project StructureTo ensure the Flask server runs correctly and can serve both your HTML pages (as templates) and your assets (as static files), the project directory must be reorganized.
+⚠️ CRITICAL SETUP: Project Structure to ensure the Flask server runs correctly and can serve both your HTML pages (as templates) and your assets (as static files), the project directory must be reorganized.
 Action Required for Examiner: Please perform the following steps before running app.py:
 1. Create a folder named templates.
 2. Move index.html and overview.html into the templates folder.
