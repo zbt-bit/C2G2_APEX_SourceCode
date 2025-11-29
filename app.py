@@ -1,20 +1,25 @@
 import pandas as pd
 import joblib
 import requests
-import random # Imported for the read_health_sensor simulation
+import random
 from datetime import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from sklearn.ensemble import RandomForestClassifier # Needed for type hint in determine_lamp_action
+from sklearn.ensemble import RandomForestClassifier
 
 # --- CONFIGURATION (WeatherAPI + Self-Diagnosis Failsafe) ---
 app = Flask(__name__)
 CORS(app) 
 MODEL_FILE = 'street_lamp_model.joblib'
-FEATURES = ['humidity', 'cloudcover', 'visibility', 'uvindex', 'day_of_year', 'temp', 'precip']
+
+# CRITICAL FIX: This list MUST match the 7 features and EXACT order used in train_model.py.
+FEATURES = [
+    'humidity', 'cloudcover', 'visibility', 'uvindex', 'day_of_year', 
+    'temp', 'precip' 
+]
 
 # Self-Diagnosis Failsafe Threshold
-MAX_SAFE_TEMP_C = 55.0 # Typical max safe internal temperature for embedded systems
+MAX_SAFE_TEMP_C = 55.0 
 
 # Weather API Setup
 WEATHER_API_KEY = '10012805f62e4da08c702836252911' 
@@ -25,9 +30,7 @@ WEATHER_URL = f"http://api.weatherapi.com/v1/forecast.json?key={WEATHER_API_KEY}
 def read_health_sensor():
     """
     Simulates reading the internal temperature sensor attached to the Edge device.
-    In a real system, this would read from a hardware interface (GPIO, I2C, etc.).
     """
-    # Placeholder: Randomly simulate a temperature for testing the failsafe
     current_temp = random.uniform(30.0, 65.0) 
     
     is_overheated = current_temp > MAX_SAFE_TEMP_C
@@ -39,7 +42,7 @@ def read_health_sensor():
     }
 
 
-# Load the ML model (trained to predict 1=MAX/Rain/Fog, 0=DIMMER/OFF/Clear)
+# Load the ML model 
 try:
     model = joblib.load(MODEL_FILE)
     print(f"Model '{MODEL_FILE}' loaded successfully.")
@@ -98,11 +101,8 @@ def fetch_real_time_weather():
         ml_features = {
             'temp': current['temp_c'], 
             'humidity': current['humidity'],
-            # Use 'precip_mm' for precipitation
             'precip': current['precip_mm'], 
-            # Use 'cloud' for cloudcover (WeatherAPI uses %)
             'cloudcover': current['cloud'], 
-            # Use 'vis_km' for visibility (cap at 10.0, the max in the training data)
             'visibility': min(current['vis_km'], 10.0), 
             'uvindex': current['uv'],
             'day_of_year': calculate_day_of_year(current_date),
@@ -126,48 +126,45 @@ def fetch_real_time_weather():
         return {'status': 'error', 'message': f'Failed to parse weather data structure: Missing key {e}'}
 
 
-def determine_lamp_action(weather_features, is_motion_detected, model_clf: RandomForestClassifier, health_status: dict):
+def determine_lamp_action(all_inputs, model_clf: RandomForestClassifier, health_status: dict):
     """
     Implements the hierarchical control logic (Time -> Failsafe -> Safety -> Efficiency).
-    
-    Args:
-        weather_features: Dict of weather data.
-        is_motion_detected: Boolean from camera/IR sensor.
-        model_clf: The trained RandomForestClassifier model.
-        health_status: Dict containing 'is_overheated' status.
     """
     
     # --- 1. TIME CHECK (Step 1) ---
-    if not weather_features.get('is_night_time', False):
+    if not all_inputs.get('is_night_time', False):
         return "OFF (Daytime)"
 
-    # --- 2. FAILSAFE CHECK (NEW - HIGHEST PRIORITY) ---
+    # --- 2. FAILSAFE CHECK (HIGHEST PRIORITY) ---
     if health_status['is_overheated']:
-        # Overheat detected! Trigger alert/failsafe. 
-        # Forcing MAX OUTPUT ensures maintenance staff can easily identify the failing unit.
         print(f"*** SYSTEM ALERT: OVERHEAT DETECTED ({health_status['current_temp_c']}°C). FORCING MAX OUTPUT. ***")
         return "MAX OUTPUT (System Failsafe: Overheat)"
 
 
-    # --- 3. WEATHER CHECK (Safety Override - Step 3) ---
+    # --- 3. ML SAFETY CHECK (Weather Prediction) ---
     
-    # Prepares features for the model (ONLY the 7 weather features trained)
-    X_weather = pd.DataFrame([weather_features])[FEATURES]
+    # Prepares features for the model (Only uses the 7 features the ML model was trained on)
+    X_weather = pd.DataFrame([all_inputs])[FEATURES]
     
-    # Predicts if MAX OUTPUT is required (1) or not (0)
+    # DEBUG CRITICAL: Print the order of features being passed to the model.
+    print(f"Features passed to model (order MUST match training): {X_weather.columns.tolist()}") 
+    
+    # Predicts if MAX OUTPUT is required (1) or not (0) due to poor weather/visibility.
     max_light_required = model_clf.predict(X_weather)[0] 
     
     if max_light_required == 1:
         # Rainy or Foggy conditions predicted by ML model. Safety override.
+        # DEBUG: Log the reason why ML model chose MAX OUTPUT
+        print(f"*** ML SAFETY OVERRIDE: Weather features triggering MAX OUTPUT: {X_weather.to_dict('records')[0]} ***")
         return "MAX OUTPUT (Safety Override: Rain/Fog)"
-
-    # --- 4. MOTION CHECK (Efficiency - Steps 4, 5) ---
-    # Good weather conditions (max_light_required == 0) and system is healthy
-    if is_motion_detected:
-        # Motion detected -> Turn on Dimmer Light
+        
+    # --- 4. MOTION CHECK (EFFICIENCY - ONLY RUNS IF ML PREDICTS CLEAR WEATHER) ---
+    
+    if all_inputs['is_motion_detected']:
+        # Motion detected -> Turn on Dimmer Light (Efficiency mode)
         return "DIMMER OUTPUT (Motion Detected)"
     else:
-        # No motion detected -> Turn off light for max savings
+        # No motion detected, clear weather predicted -> Turn off light for max savings
         return "OFF (No Motion Detected)"
 
 
@@ -191,26 +188,31 @@ def control_lamp():
         weather_features = weather_result['data']
         astronomy = weather_result['astronomy']
         
-        # 3. Read System Health Sensor (NEW)
+        # 3. Read System Health Sensor
         health_status = read_health_sensor()
 
+        # 4. Combine ALL inputs into one dictionary for easy passing
+        all_inputs = {
+            **weather_features,
+            'is_motion_detected': is_motion_detected
+        }
 
-        # 4. Determine Final Lamp Action using Hierarchical Logic
+        # 5. Determine Final Lamp Action using Hierarchical Logic
         lamp_action = determine_lamp_action(
-            weather_features, 
-            is_motion_detected, 
+            all_inputs, 
             model, 
-            health_status # Passing health status to the logic
+            health_status
         )
         
-        # 5. Return the result
+        # 6. Return the result
         return jsonify({
             'status': 'success',
             'lamp_action': lamp_action,
-            'system_health': health_status, # NEW: System health status included
-            'weather_data_for_chart': weather_features, 
+            'system_health': health_status, 
+            # We pass all combined inputs for the chart display:
+            'weather_data_for_chart': all_inputs, 
             'inputs_used': {
-                'is_night_time': weather_features.get('is_night_time', False),
+                'is_night_time': all_inputs.get('is_night_time', False),
                 'is_motion_detected': is_motion_detected,
                 'location': LOCATION,
                 'sunrise': astronomy['sunrise'],
