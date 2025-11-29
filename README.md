@@ -30,16 +30,16 @@ project_root/
 1. Prerequisites: You must have Python 3 installed and the following libraries available. We recommend using your Anaconda Prompt or terminal:
 - Bash:
 - pip install flask pandas scikit-learn joblib
-3. Training the Model (If necessary)The AI decision logic relies on the model file (street_lamp_model.joblib).
+2. Training the Model (If necessary)The AI decision logic relies on the model file (street_lamp_model.joblib).
 - Run the training script (this only needs to be done once):
 - Bash:
 - python train_model.py
-4. Start the Backend ServerRun the Flask server from the project's root directory:
+3. Start the Backend ServerRun the Flask server from the project's root directory:
 - Bash:
 - python app.py
 - You should see output confirming the server is ready:* Running on http://127.0.0.1:5000 (Press CTRL+C to quit)
 - Keep this terminal window open.
-5. Access the Dashboard
+4. Access the Dashboard
 - Open your web browser and navigate directly to the local server URL:http://127.0.0.1:5000/
    
 ⚙️Testing and Automated Scenarios (3-Step Loop)The dashboard is configured with an automated demo sequence that begins immediately upon loading. 
