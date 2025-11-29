@@ -115,6 +115,14 @@
         .status-card {
             grid-column: span 4;
         }
+        
+        /* NEW: Health Card Positioning */
+        .health-card {
+            grid-column: span 4;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
 
         .chart-card-large {
             grid-column: span 8;
@@ -288,8 +296,8 @@
             padding: 10px;
         }
         
-        /* New: style for the image inside camera-view */
-        .camera-view #liveFeedImage {
+        /* New: style for the VIDEO inside camera-view */
+        .camera-view #liveFeedVideo {
             width: 100%; 
             height: 100%; 
             object-fit: cover; 
@@ -297,7 +305,7 @@
             top: 0; 
             left: 0; 
             border-radius: 15px;
-            opacity: 0.8; /* Dim the image slightly for text readability */
+            opacity: 0.8; /* Dim the video slightly for text readability */
         }
 
         .camera-view .overlay-content {
@@ -347,10 +355,33 @@
             transition: all 0.3s ease;
         }
         
-        /* ... (rest of alert log styles are the same) ... */
+        /* Lamp Health Card Styles */
+        .health-status {
+            font-size: 1.5em;
+            font-weight: 700;
+            margin-top: 5px;
+            margin-bottom: 15px;
+            transition: color 0.3s;
+        }
+        .health-status.good { color: #2ecc71; }
+        .health-status.warning { color: #f39c12; }
+        .health-status.critical { color: #e74c3c; }
+
+        .health-detail p {
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            color: #555;
+        }
+        .health-detail span {
+            font-weight: 600;
+            color: #333;
+        }
 
         /* Responsive Design */
         @media (max-width: 1200px) {
+            .health-card {
+                grid-column: span 12;
+            }
             .chart-card-large {
                 grid-column: span 12;
             }
@@ -358,14 +389,20 @@
                 grid-column: span 12;
                 flex-direction: row;
             }
+            .side-panel > .card {
+                flex: 1; /* Make side panel items equal width */
+            }
         }
 
         @media (max-width: 768px) {
-            .time-card, .solar-card, .status-card {
+            .time-card, .solar-card, .status-card, .health-card {
                 grid-column: span 12;
             }
             .header h1 {
                 font-size: 2em;
+            }
+            .side-panel {
+                flex-direction: column;
             }
         }
 
@@ -404,7 +441,19 @@
                 </div>
             </div>
 
-            <div class="card status-card">
+            <div class="card health-card">
+                <h2><span class="card-icon">🩺</span> Lamp Health Status</h2>
+                <p id="lamp-health-status" class="health-status good">
+                    Optimal (99.9% Uptime)
+                </p>
+                <div class="health-detail">
+                    <p>Last Check-in: <span id="last-checkin"></span></p>
+                    <p>Failures Reported: <span id="failures">0</span></p>
+                    <p>Firmware Version: <span id="firmware">v3.1.2</span></p>
+                </div>
+            </div>
+            
+            <div class="card status-card" style="grid-row: 1 / 3; grid-column: 9 / 13;">
                 <h2><span class="card-icon">💡</span> Lamp Control</h2>
                 <div id="lamp-status-output">
                     Awaiting AI Decision...
@@ -426,25 +475,11 @@
                         <option value="true">🏃 Motion Sensor: Detected</option>
                     </select>
                     
-                    <button type="submit">Run AI Analysis</button>
+                    <button type="submit">Run AI Analysis (DISABLED IN AUTO-MODE)</button>
                 </form>
             </div>
             
-            <!-- 4. NEW: Lamp Health Card -->
-            <div class="card health-card">
-                <h2><span class="card-icon">🩺</span> Lamp Health Status</h2>
-                <p id="lamp-health-status" class="health-status good">
-                    Optimal (99.9% Uptime)
-                </p>
-                <div class="health-detail">
-                    <p>Last Check-in: <span id="last-checkin"></span></p>
-                    <p>Failures Reported: <span id="failures">0</span></p>
-                    <p>Firmware Version: <span id="firmware">v3.1.2</span></p>
-                </div>
-            </div>
-            <!-- END NEW SLOT -->
-
-            <div class="card chart-card-large">
+            <div class="card chart-card-large" style="grid-column: span 8;">
                 <h2><span class="card-icon">📊</span> Operational Time Breakdown (24h)</h2>
                 <canvas id="operationalTimeChart"></canvas>
             </div>
@@ -453,18 +488,17 @@
                 <div class="card">
                     <h2><span class="card-icon">📹</span> Camera Feed</h2>
                     <div class="camera-view">
-                        <img id="liveFeedImage" src="images/clear_road.jpg" alt="Live Camera Feed Snapshot">
+                        <video id="liveFeedVideo" loop muted autoplay playsinline>
+                            <source id="videoSource" src="videos/traffic.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
                         
                         <div class="overlay-content">
-                            <p style="margin: 0;">LIVE FEED (Snapshot from Edge CV)</p>
+                            <p style="margin: 0;">LIVE FEED (Simulated Video from Edge CV)</p>
                             <p class="motion-status" id="camera-motion-status">Motion Status: None</p>
                         </div>
                         
-                        
-
-[Image of a diagram showing an IoT edge device with a camera running a Computer Vision model connected to a cloud server for alerts]
-
-                    </div>
+                        </div>
                 </div>
                 <div class="card">
                     <h2><span class="card-icon">🔔</span> Alert Log</h2>
@@ -476,7 +510,7 @@
                 </div>
             </div>
 
-            <div class="card chart-card-large">
+            <div class="card chart-card-large" style="grid-column: span 12;">
                 <h2><span class="card-icon">🌡️</span> Real-Time Weather Conditions (Temp, Humidity, Clouds)</h2>
                 <canvas id="weatherChart"></canvas>
             </div>
@@ -490,12 +524,39 @@
         const outputDiv = document.getElementById('lamp-status-output');
         const cameraMotionStatus = document.getElementById('camera-motion-status');
         
-        // --- NEW: Image Mappings (REPLACE THESE WITH YOUR ACTUAL IMAGE URLs) ---
-        const VISION_IMAGES = {
-            clear: 'road.webp',
-            car: 'cctvFootage.jpg',
-            crash: 'accident.webp' 
+        // Corrected Video Mappings to use your new files (ensure these files exist)
+        const VISION_VIDEOS = {
+            clear_road: 'videos/rain_no_car.mp4',
+            car_detected: 'videos/traffics.mp4',
+            crash_detected: 'videos/Emergency.mp4'
         };
+
+        // **NEW: Define the Automated Scenario Sequence**
+        const SCENARIO_SEQUENCE = [
+            { 
+                id: 'clear', 
+                label: '1. Clear Road, Motion None', 
+                video: 'clear_road', 
+                visionInput: 'clear', 
+                motionDetected: 'false' 
+            },
+            { 
+                id: 'car', 
+                label: '2. Vehicle Detected, Motion Detected', 
+                video: 'car_detected', 
+                visionInput: 'car', 
+                motionDetected: 'true' 
+            },
+            { 
+                id: 'crash', 
+                label: '3. Accident/Crash, Motion Detected', 
+                video: 'crash_detected', 
+                visionInput: 'crash', 
+                motionDetected: 'true' 
+            }
+        ];
+
+        let currentScenarioIndex = 0; // Start at the first scenario
 
         // Helper to get Day of Year (kept for robustness)
         Date.prototype.getDayOfYear = function() {
@@ -528,6 +589,7 @@
             });
             document.getElementById('time-value').textContent = timeString;
             document.getElementById('date-value').textContent = dateString;
+            document.getElementById('last-checkin').textContent = now.toLocaleTimeString();
         }
         
         function drawSolarGauge() {
@@ -605,7 +667,6 @@
             });
         }
 
-        // Now shows Temperature, Humidity, and Cloud Cover
         function drawWeatherChart(weatherData) {
             
             const labels = ['Temperature', 'Humidity', 'Cloud Cover'];
@@ -623,9 +684,9 @@
                         label: 'Current Value',
                         data: dataValues,
                         backgroundColor: [
-                            'rgba(230, 126, 34, 0.8)', // Orange for Temperature
-                            'rgba(52, 152, 219, 0.8)', // Blue for Humidity
-                            'rgba(52, 73, 94, 0.8)' // Dark for Cloud Cover
+                            'rgba(230, 126, 34, 0.8)', 
+                            'rgba(52, 152, 219, 0.8)', 
+                            'rgba(52, 73, 94, 0.8)' 
                         ],
                         borderColor: [
                             'rgba(230, 126, 34, 1)',
@@ -671,23 +732,20 @@
             });
         }
 
-        // --- AI CONTROL LOGIC (UPDATED FOR VISION INPUT) ---
+        // --- AI CONTROL LOGIC (The core function for running the AI) ---
         
         async function runInitialAnalysis() {
             
             const visionInput = document.getElementById('visionInput').value;
             const isMotionDetectedOverride = document.getElementById('isMotionDetected').value === 'true';
 
-            // 1. Update Camera Feed Image
-            document.getElementById('liveFeedImage').src = VISION_IMAGES[visionInput];
-
-            // 2. Determine Final Motion Status for API payload
+            // 2. Determine Final Motion Status for API payload (remains the same)
             let finalMotionStatus;
             let motionStatusDisplay;
 
             if (visionInput === 'crash' || visionInput === 'car') {
                 finalMotionStatus = true;
-                motionStatusDisplay = 'DETECTED (by CV)';
+                motionStatusDisplay = visionInput === 'crash' ? 'EMERGENCY (by CV)' : 'DETECTED (by CV)';
             } else { // 'clear'
                 finalMotionStatus = isMotionDetectedOverride;
                 motionStatusDisplay = finalMotionStatus ? 'DETECTED (by Sensor)' : 'None';
@@ -705,8 +763,7 @@
                 outputDiv.innerHTML = '🚨 **EMERGENCY: ACCIDENT DETECTED!** 🚨';
                 addAlert('🚨 **EMERGENCY: CRASH DETECTED** - MAX OUTPUT & STAFF NOTIFICATION TRIGGERED!');
                 
-                // Still update chart for context, using default/mock data since API call is skipped
-                drawWeatherChart({temp: 28.0, humidity: 85.0, cloudcover: 50.0}); 
+                drawWeatherChart({temp: 28.0, humidity: 85.0, cloudcover: 90.0}); 
                 return; // Exit function immediately, no API call
             }
 
@@ -715,7 +772,7 @@
             outputDiv.className = '';
             
             const payload = {
-                is_motion_detected: finalMotionStatus, // Use the determined status
+                is_motion_detected: finalMotionStatus,
             };
 
             try {
@@ -768,16 +825,50 @@
             }
         }
         
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            form.classList.add('loading');
+        // Remove manual form listener to allow automated control
+        // form.addEventListener('submit', ...); 
+
+
+        // **NEW: Function to start the next scenario in the sequence**
+        function startNextScenario() {
+            const scenario = SCENARIO_SEQUENCE[currentScenarioIndex];
             
-            try {
-                await runInitialAnalysis();
-            } finally {
-                form.classList.remove('loading');
-            }
-        });
+            // --- 1. Update UI Inputs based on Scenario ---
+            const visionInputSelect = document.getElementById('visionInput');
+            const motionSelect = document.getElementById('isMotionDetected');
+            
+            // Set the dropdown values to match the scenario's requirements
+            visionInputSelect.value = scenario.visionInput;
+            motionSelect.value = scenario.motionDetected;
+            
+            // Visually update the UI to show the current scenario inputs
+            outputDiv.textContent = `Scenario: ${scenario.label} is loading...`;
+            outputDiv.className = '';
+            
+            // --- 2. Load and Play New Video ---
+            const videoSource = document.getElementById('videoSource');
+            const videoElement = document.getElementById('liveFeedVideo');
+            
+            // Use the scenario's video key to get the path
+            videoSource.src = VISION_VIDEOS[scenario.video];
+            videoElement.load();
+            videoElement.play(); // Force play just in case load() doesn't auto-start immediately
+            
+            // --- 3. Run AI Analysis (Simulate button click) ---
+            setTimeout(async () => {
+                form.classList.add('loading');
+                try {
+                    await runInitialAnalysis(); 
+                } finally {
+                    form.classList.remove('loading');
+                    
+                    // --- 4. Schedule Next Scenario (10 second delay) ---
+                    currentScenarioIndex = (currentScenarioIndex + 1) % SCENARIO_SEQUENCE.length; // Loop back to start
+                    
+                    setTimeout(startNextScenario, 10000); 
+                }
+            }, 500); 
+        }
 
         // Add alert to log
         function addAlert(message) {
@@ -809,8 +900,10 @@
             setInterval(drawSolarGauge, 10000); 
             drawOperationalTimeChart();
             
-            addAlert('System fully operational');
-            runInitialAnalysis(); 
+            addAlert('System fully operational. Starting automated demo sequence...');
+            
+            // Start the sequence loop
+            startNextScenario(); 
         }
 
         window.onload = initDashboard;
